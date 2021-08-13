@@ -1,31 +1,62 @@
-const indexedDB = window.indexedDB || window.mozIndexedDB
+import { json, response } from "express";
+
+const indexedDB = window.indexedDB || window.mozIndexedDB;
 let db;
-const requestObject = indexedDB.open("budget-tracker", 1)
+const requestObject = indexedDB.open("budget-tracker", 1);
 
 requestObject.onsuccess = (target) => {
-    db = target.result;
-    console.log(db.result);
-}
+  db = target.result;
+  console.log(db.result);
 
-export function useIndexedDb(databaseName, storeName, method, object) {
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(databaseName, 1);
-    let db, tx, store;
-
-    request.onupgradeneeded = function (e) {
-      const db = request.result;
-      db.createObjectStore(storeName, { keyPath: "_id" });
-    };
-
-    request.onerror = function (e) {
-      console.log("There was an error");
-    };
-  });
-}
-export function checkForIndexedDb() {
-  if (!window.indexedDB) {
-    console.log("Your browser doesn't support a stable version of IndexedDB.");
-    return false;
+  if (navigator.onLine) {
+    checkForIndexedDb();
   }
-  return true;
+};
+
+requestObject.onupgradeneeded = (target) => {
+  db = target.result;
+  console.log("On upgrade needed" + db.result);
+  db.createObjectStore("Pending", {
+    autoIncrement: true,
+  });
+};
+
+requestObject.onerror = function (e) {
+  console.log("There was an error" + e.target.errorCode);
+};
+
+function saveRecord(recordToBeSaved) {
+  const transaction = db.transaction(["Pending"], "readwrite");
+  const store = transaction.objectStore("Pending");
+  store.add(recordToBeSaved);
 }
+
+export function checkForIndexedDb() {
+  const checkBudget = db.transaction(["Pending"], "readwrite");
+  const store = checkBudget.objectStore("Pending");
+  const getAllData = store.getAll();
+
+  getAllData.onsuccess = function () {
+    if (getAllData > 0) {
+      fetch("/api/transaction/bulk", {
+        method: "post",
+        body: JSON.stringify(getAllData.result),
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+        },
+      })
+        .then((dataResponse) => {
+          return dataResponse.json();
+        })
+        .then(() => {
+          const checkBudget = db.transaction(["Pending"], "readwrite");
+          const store = checkBudget.objectStore("Pending");
+
+          store.clear()
+        });
+    }
+  };
+}
+
+window.addEventListener("online", checkForIndexedDb);
