@@ -1,11 +1,9 @@
-import { json, response } from "express";
-
 const indexedDB = window.indexedDB || window.mozIndexedDB;
 let db;
 const requestObject = indexedDB.open("budget-tracker", 1);
 
-requestObject.onsuccess = (target) => {
-  db = target.result;
+requestObject.onsuccess = ({target}) => {
+  let db = target.result;
   console.log(db.result);
 
   if (navigator.onLine) {
@@ -13,10 +11,9 @@ requestObject.onsuccess = (target) => {
   }
 };
 
-requestObject.onupgradeneeded = (target) => {
-  db = target.result;
-  console.log("On upgrade needed" + db.result);
-  db.createObjectStore("Pending", {
+requestObject.onupgradeneeded = ({target}) => {
+  let db = target.result;
+  db.createObjectStore("pending", {
     autoIncrement: true,
   });
 };
@@ -26,14 +23,14 @@ requestObject.onerror = function (e) {
 };
 
 function saveRecord(recordToBeSaved) {
-  const transaction = db.transaction(["Pending"], "readwrite");
-  const store = transaction.objectStore("Pending");
+  const transaction = db.transaction(["pending"], "readwrite");
+  const store = transaction.objectStore("pending");
   store.add(recordToBeSaved);
 }
 
-export function checkForIndexedDb() {
-  const checkBudget = db.transaction(["Pending"], "readwrite");
-  const store = checkBudget.objectStore("Pending");
+function checkForIndexedDb() {
+  const transaction = db.transaction(["pending"], "readwrite");
+  const store = transaction.objectStore("pending");
   const getAllData = store.getAll();
 
   getAllData.onsuccess = function () {
@@ -50,8 +47,8 @@ export function checkForIndexedDb() {
           return dataResponse.json();
         })
         .then(() => {
-          const checkBudget = db.transaction(["Pending"], "readwrite");
-          const store = checkBudget.objectStore("Pending");
+          const transaction = db.transaction(["pending"], "readwrite");
+          const store = transaction.objectStore("pending");
 
           store.clear()
         });
